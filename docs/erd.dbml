@@ -1,0 +1,21 @@
+Table User {
+  id int [pk, increment] // Primary Key, automatically increments
+  external_user_id varchar // Reference to the user ID in the external service (e.g., Keycloak)
+}
+
+Table File {
+  id int [pk, increment] // Primary Key, automatically increments
+  user_id int [not null, ref: > User.id] // Foreign Key, links to User table
+  folder_id int [not null, ref: > Folder.id] // Foreign Key, links to Folder table
+  object_storage_ref varchar [not null] // Reference to the file in the Object Storage (e.g., MinIO)
+  name varchar [not null] // File name
+  size bigint // File size in bytes
+  created_at datetime // Timestamp of when the file was uploaded
+}
+
+Table Folder {
+  id int [pk, increment] // Primary Key, automatically increments
+  user_id int [not null, ref: > User.id] // Foreign Key, links to User table
+  name varchar [not null] // Folder name
+  parent_folder_id int [null, ref: > Folder.id] // Self-referencing Foreign Key for subfolders, nullable for root folders
+}
