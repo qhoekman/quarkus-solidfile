@@ -15,7 +15,7 @@ class GreetingResourceTest {
                 .when().get("/api/greeting")
                 .then()
                 .statusCode(200)
-                .body(is("Congratulations, you have 1 users!"));
+                .body(is("Congratulations, you have 1 users and 0 files!"));
     }
 
 }
