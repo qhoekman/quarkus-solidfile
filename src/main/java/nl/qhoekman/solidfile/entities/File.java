@@ -1,6 +1,6 @@
 package nl.qhoekman.solidfile.entities;
 
-import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -18,16 +18,49 @@ public class File {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
+
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "user_id", nullable = false)
   private User user;
-  @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "folder_id", nullable = false)
-  private Folder folder;
-  @Column(name = "object_storage_ref")
-  private String objectStorageRef;
+
   private String name;
+
   private Long size;
-  @Column(name = "created_at")
-  private LocalDateTime createdAt;
+
+  private String bucket;
+
+  @Column(name = "updated_at")
+  private ZonedDateTime updatedAt;
+
+  public String getName() {
+    return name;
+  }
+
+  public void setName(String name) {
+    this.name = name;
+  }
+
+  public String getBucket() {
+    return bucket;
+  }
+
+  public void setBucket(String bucket) {
+    this.bucket = bucket;
+  }
+
+  public Long getSize() {
+    return size;
+  }
+
+  public void setSize(Long size) {
+    this.size = size;
+  }
+
+  public ZonedDateTime getUpdatedAt() {
+    return updatedAt;
+  }
+
+  public void setUpdatedAt(ZonedDateTime updatedAt) {
+    this.updatedAt = updatedAt;
+  }
 }

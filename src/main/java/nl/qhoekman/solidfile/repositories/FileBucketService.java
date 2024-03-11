@@ -1,8 +1,11 @@
 package nl.qhoekman.solidfile.repositories;
 
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 import io.minio.BucketExistsArgs;
+import io.minio.CopySource;
 import io.minio.GetObjectArgs;
 import io.minio.ListObjectsArgs;
 import io.minio.MakeBucketArgs;
@@ -15,6 +18,8 @@ import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import nl.qhoekman.solidfile.domain.MultipartBody;
+import nl.qhoekman.solidfile.entities.File;
 
 @ApplicationScoped
 public class FileBucketService {
@@ -50,15 +55,59 @@ public class FileBucketService {
     }
   }
 
-  public String getObject(String name) {
+  public byte[] getFile(String name) {
     try (InputStream is = minio.getObject(
         GetObjectArgs.builder()
             .bucket(getBucketName())
             .object(name)
             .build());) {
-      return new String(is.readAllBytes());
+      return is.readAllBytes();
     } catch (MinioException e) {
       throw new IllegalStateException(e);
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  public List<File> getFiles() {
+    try {
+      List<File> files = new ArrayList<File>();
+      // get all files from the bucket and subfolders
+      var results = minio.listObjects(
+          ListObjectsArgs.builder()
+              .bucket(getBucketName())
+              .build());
+      for (var _object : results) {
+        // if the object is a directory, list all files in the directory
+        if (_object.get().isDir()) {
+          var subResults = minio.listObjects(
+              ListObjectsArgs.builder()
+                  .bucket(getBucketName())
+                  .prefix(_object.get().objectName())
+                  .recursive(true)
+                  .build());
+          for (var subObject : subResults) {
+            File subFile = new File();
+            subFile.setName(subObject.get().objectName());
+            subFile.setSize(subObject.get().size());
+            subFile.setBucket(getBucketName());
+            subFile.setUpdatedAt(subObject.get().lastModified());
+            files.add(subFile);
+          }
+          // if the object is a file, add it to the list
+        } else {
+          File file = new File();
+          file.setName(_object.get().objectName());
+          file.setBucket(getBucketName());
+          file.setSize(_object.get().size());
+          file.setUpdatedAt(_object.get().lastModified());
+
+          files.add(file);
+        }
+
+      }
+
+      return files;
     } catch (Exception e) {
       throw new IllegalStateException(e);
     }
@@ -70,6 +119,7 @@ public class FileBucketService {
       var objects = minio.listObjects(
           ListObjectsArgs.builder()
               .bucket(getBucketName())
+              .recursive(true)
               .build());
       for (var _object : objects) {
         count++;
@@ -81,20 +131,70 @@ public class FileBucketService {
     }
   }
 
-  public void putObject(String name, InputStream content) {
+  public File uploadFile(MultipartBody input) {
     try {
+      String fileName = input.getName();
+      byte[] fileBytes = input.getBytes();
+      InputStream is = new InputStream() {
+        int index = 0;
+
+        @Override
+        public int read() {
+          if (index == fileBytes.length) {
+            return -1;
+          }
+          return fileBytes[index++];
+        }
+      };
+
+      // upload the file to the bucket
       minio.putObject(
           PutObjectArgs.builder()
               .bucket(getBucketName())
-              .object(name)
-              .stream(content, -1, content.available())
+              .object(fileName)
+              .stream(is, -1, 10485760)
               .build());
+      File file = new File();
+      file.setName(fileName);
+      file.setBucket(getBucketName());
+      file.setSize((long) fileBytes.length);
+      file.setUpdatedAt(java.time.ZonedDateTime.now());
+
+      return file;
     } catch (Exception e) {
       throw new IllegalStateException(e);
     }
   }
 
-  public void deleteObject(String name) {
+  public File moveFile(String from, String to) {
+    try {
+      CopySource source = CopySource.builder()
+          .bucket(getBucketName())
+          .object(from)
+          .build();
+      minio.copyObject(
+          io.minio.CopyObjectArgs.builder()
+              .source(source)
+              .bucket(getBucketName())
+              .object(to)
+              .build());
+      minio.removeObject(
+          RemoveObjectArgs.builder()
+              .bucket(getBucketName())
+              .object(from)
+              .build());
+      File file = new File();
+      file.setName(to);
+      file.setBucket(getBucketName());
+      file.setSize(source.length());
+      file.setUpdatedAt(java.time.ZonedDateTime.now());
+      return file;
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  public void deleteFile(String name) {
     try {
       minio.removeObject(
           RemoveObjectArgs.builder()
