@@ -20,7 +20,4 @@ public class User {
   private String externalUserId;
   @OneToMany(mappedBy = "user")
   private List<File> files;
-
-  @OneToMany(mappedBy = "user")
-  private List<Folder> folders;
 }
